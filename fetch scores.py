@@ -1,23 +1,6 @@
 #!/usr/bin/env python3
 """
 World Cup 2026 Score Fetcher & Excel Updater
-=============================================
-Fetches official FIFA World Cup 2026 scores and updates the competition Excel.
-
-Usage:
-    python fetch_scores.py                    # Fetch & update all pending matches
-    python fetch_scores.py --dry-run          # Preview what would be updated
-    python fetch_scores.py --list             # List all matches and their status
-    python fetch_scores.py --manual           # Use manually entered scores below
-
-Requirements:
-    pip install requests openpyxl
-
-API Key:
-    Get a free key at https://www.football-data.org/client/register
-    Set it in one of two ways:
-      Option A: Replace YOUR_API_KEY_HERE below
-      Option B: Set environment variable FOOTBALL_API_KEY=your_key
 """
 
 import os, sys, argparse, requests
@@ -25,20 +8,18 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
+# ── Always run from the script's own directory ─────────────────────────────────
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 # ─── Config ────────────────────────────────────────────────────────────────────
 EXCEL_PATH    = "WorldCup2026_Competition.xlsx"
 MATCHES_SHEET = "📋 Matches"
 
-# API key: reads from environment variable first, falls back to hardcoded value
-# On GitHub Actions, this is set as a secret (FOOTBALL_API_KEY)
-# Locally, either paste your key here or set the env var
 API_KEY = os.environ.get("FOOTBALL_API_KEY", "YOUR_API_KEY_HERE")
-
 API_BASE         = "https://api.football-data.org/v4"
-COMPETITION_CODE = "WC"   # FIFA World Cup
+COMPETITION_CODE = "WC"
 
 # ─── Team name aliases ─────────────────────────────────────────────────────────
-# Maps API team names → your Excel team names (add more if needed)
 TEAM_ALIASES = {
     "USA":                        "United States",
     "United States of America":   "United States",
@@ -57,18 +38,14 @@ def norm(name):
 def norm_match(home, away):
     return f"{norm(home)} vs {norm(away)}"
 
-# ─── Manual scores (fallback / alternative to API) ────────────────────────────
+# ─── Manual scores ─────────────────────────────────────────────────────────────
 def manual_scores():
-    """
-    Add results here manually if needed.
-    Format: (Home Team, Away Team, Home Goals, Away Goals)
-    """
     return [
-        ("Mexico",       "South Africa", 2, 0),
-        ("South Korea",  "Czech Republic", 2, 1),
-        ("Canada",       "Bosnia and Herzeg", 1, 1),
-        ("United States","Paraguay", 4, 1),
-        # Add more here:
+        ("Mexico",        "South Africa",    2, 0),
+        ("South Korea",   "Czech Republic",  2, 1),
+        ("Canada",        "Bosnia and Herzeg", 1, 1),
+        ("United States", "Paraguay",        4, 1),
+        # Add more here as matches finish:
     ]
 
 # ─── API fetch ─────────────────────────────────────────────────────────────────
@@ -81,10 +58,9 @@ def fetch_wc_scores():
         if resp.status_code == 401:
             print("⚠️  API key missing or invalid.")
             print("    Get a free key: https://www.football-data.org/client/register")
-            print("    Then paste it in fetch_scores.py (API_KEY variable)")
             return []
         if resp.status_code == 404:
-            print("⚠️  World Cup 2026 data not yet on this API. Try again after June 11.")
+            print("⚠️  World Cup 2026 data not yet available. Try after June 11.")
             return []
 
         resp.raise_for_status()
@@ -95,8 +71,10 @@ def fetch_wc_scores():
             if hg is None or ag is None:
                 continue
             results.append({
-                "home": m["homeTeam"]["name"], "away": m["awayTeam"]["name"],
-                "home_goals": int(hg), "away_goals": int(ag),
+                "home": m["homeTeam"]["name"],
+                "away": m["awayTeam"]["name"],
+                "home_goals": int(hg),
+                "away_goals": int(ag),
             })
         print(f"✅ Fetched {len(results)} completed matches from API")
         return results
@@ -119,10 +97,10 @@ def load_excel_matches(wb):
         away_team = row[7].value
         key = norm_match(home_team or "", away_team or "")
         matches[key] = {
-            "row":         row[1].row,
-            "home_cell":   row[4],
-            "away_cell":   row[5],
-            "status_cell": row[8],
+            "row":          row[1].row,
+            "home_cell":    row[4],
+            "away_cell":    row[5],
+            "status_cell":  row[8],
             "current_home": row[4].value,
             "current_away": row[5].value,
         }
@@ -140,7 +118,6 @@ def update_excel(results, dry_run=False):
     for r in results:
         key = norm_match(r["home"], r["away"])
         if key not in ex:
-            # try reversed (home/away might be swapped in some APIs)
             key_rev = norm_match(r["away"], r["home"])
             if key_rev not in ex:
                 print(f"  ⚠️  Not matched: {r['home']} vs {r['away']}")
@@ -192,12 +169,14 @@ def list_matches():
 # ─── Main ──────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="World Cup 2026 Score Updater")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without saving")
-    parser.add_argument("--list",    action="store_true", help="Show all matches")
-    parser.add_argument("--manual",  action="store_true", help="Use manual scores")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--list",    action="store_true")
+    parser.add_argument("--manual",  action="store_true")
     args = parser.parse_args()
 
     print("⚽ World Cup 2026 Score Updater")
+    print(f"   Working directory: {os.getcwd()}")
+    print(f"   Excel file: {EXCEL_PATH}")
     print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     if args.list:
