@@ -1,0 +1,45 @@
+name: ⚽ Auto-Update World Cup Scores
+
+on:
+  schedule:
+    # Runs every 2 hours during the World Cup (June–July 2026)
+    - cron: '0 */2 * * *'
+  
+  # Also lets you trigger it manually from GitHub's website (one click)
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    # Give the workflow permission to write files back to your repo
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install dependencies
+        run: pip install requests openpyxl
+
+      - name: ⚽ Fetch latest scores & update Excel
+        env:
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+        run: python fetch_scores.py
+
+      - name: 🌐 Regenerate leaderboard HTML
+        run: python export_html.py
+
+      - name: 💾 Commit and push updates
+        run: |
+          git config user.name  "World Cup Bot"
+          git config user.email "bot@worldcup2026.com"
+          git add WorldCup2026_Competition.xlsx leaderboard.html
+          git diff --staged --quiet || git commit -m "⚽ Score update $(date +'%Y-%m-%d %H:%M UTC')"
+          git push
