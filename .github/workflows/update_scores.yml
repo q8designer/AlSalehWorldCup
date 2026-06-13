@@ -1,18 +1,7 @@
-name: ⚽ Auto-Update World Cup Scores
-
-on:
-  schedule:
-    # Runs every 2 hours during the World Cup (June–July 2026)
-    - cron: '0 */2 * * *'
-  
-  # Also lets you trigger it manually from GitHub's website (one click)
-  workflow_dispatch:
-
 jobs:
   update:
     runs-on: ubuntu-latest
 
-    # Give the workflow permission to write files back to your repo
     permissions:
       contents: write
 
@@ -31,7 +20,9 @@ jobs:
       - name: ⚽ Fetch latest scores & update Excel
         env:
           FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
-        run: python fetch_scores.py
+        run: |
+          ls -la
+          python fetch_scores.py
 
       - name: 🌐 Regenerate leaderboard HTML
         run: python export_html.py
